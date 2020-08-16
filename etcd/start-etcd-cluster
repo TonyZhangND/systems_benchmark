@@ -1,0 +1,71 @@
+#!/bin/bash
+# This script starts a distributed etcd cluster. It takes the following 
+# positional arguments:
+# ./start-etcd--cluster <host_id..>
+# Each host_id refers to the respective host in hosts.csv that will participate in the etcd cluster
+# Info on cluster commands found in https://etcd.io/docs/v2/clustering/
+
+HOSTS="../hosts_all.csv"
+HOST_PORT="2380"            # peer-facing port used by etcd hosts
+CLIENT_PORT="2379"          # client-facing port used by etcd hosts
+
+HOST_ID_LIST=("$@")
+
+if [ ${#HOST_ID_LIST[@]} -lt 1 ];
+then
+    echo "No host id provided"
+    exit 1
+fi
+
+
+HOST_NAME_LIST=()
+HOST_IP_LIST=()
+
+# Get info on the hosts
+for i in "${HOST_ID_LIST[@]}"
+do
+    while IFS=, read -r id name address port
+    do 
+        if [ $id -eq $i ]
+        then
+            # echo "TONY: $name $address $port"
+            HOST_NAME_LIST+=("$name")
+            HOST_IP_LIST+=("$address")
+            break
+        fi
+    done < <(tail -n +2 $HOSTS)
+done
+
+echo "Generating etcd configuration for the following cluster:"
+echo "  - Cluster size  : ${#HOST_NAME_LIST[@]}"
+echo "  - Hosts         : ${HOST_NAME_LIST[@]}"
+
+# Generate the list of member of the cluster. 
+# This is of the format "infra0=http://<ip0>:<host_port>, ..."
+
+MEMBERS="infra0=http://${HOST_IP_LIST[0]}:$HOST_PORT"
+for ((i=1;i<${#HOST_NAME_LIST[@]};i++))
+do
+    NODE_IP=${HOST_IP_LIST[$i]}
+    MEMBERS="$MEMBERS,infra$i=http://$NODE_IP:$HOST_PORT"
+done
+
+
+# Terminate any existing session. 
+# This also clears any persistent data from previous sessions
+./kill_cluster ${HOST_ID_LIST[@]}
+
+# Start each host
+for ((i=0;i<${#HOST_IP_LIST[@]};i++))
+do
+    NODE_IP=${HOST_IP_LIST[$i]}
+    SCRIPT="etcd --name infra$i --initial-advertise-peer-urls http://$NODE_IP:$HOST_PORT \
+  --listen-peer-urls http://$NODE_IP:$HOST_PORT \
+  --listen-client-urls http://$NODE_IP:$CLIENT_PORT,http://127.0.0.1:$CLIENT_PORT \
+  --advertise-client-urls http://$NODE_IP:$CLIENT_PORT \
+  --initial-cluster-token etcd-cluster-1 \
+  --initial-cluster $MEMBERS \
+  --initial-cluster-state new"
+
+    ssh nudzhang@$NODE_IP "$SCRIPT > /dev/null"  &
+done

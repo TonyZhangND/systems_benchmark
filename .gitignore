@@ -1,0 +1,5 @@
+.vscode/
+etcd/src/go.etcd.io/
+etcd/src/google.golang.org/
+etcd/src/github.com/
+etcd/client-main

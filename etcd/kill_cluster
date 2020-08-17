@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kills etcd running on specified hosts
+# Kills etcd running on specified hosts. Kills etcd on all hosts if none specified.
 
 HOSTS="../hosts_all.csv"
 HOST_PORT="2380"            # peer-facing port used by etcd hosts
@@ -7,30 +7,27 @@ CLIENT_PORT="2379"          # client-facing port used by etcd hosts
 
 HOST_ID_LIST=("$@")
 
-if [ ${#HOST_ID_LIST[@]} -lt 1 ];
-then
-    echo "No host id provided"
-    exit 1
-fi
-
-
 HOST_NAME_LIST=()
 HOST_IP_LIST=()
 
 # Get info on the hosts
-for i in "${HOST_ID_LIST[@]}"
+while IFS=, read -r id name address port
 do
-    while IFS=, read -r id name address port
-    do 
-        if [ $id -eq $i ]
-        then
-            # echo "TONY: $name $address $port"
-            HOST_NAME_LIST+=("$name")
-            HOST_IP_LIST+=("$address")
-            break
-        fi
-    done < <(tail -n +2 $HOSTS)
-done
+    if [ ${#HOST_ID_LIST[@]} -eq 0 ]; then
+        HOST_NAME_LIST+=("$name")
+        HOST_IP_LIST+=("$address")
+    else
+        for i in "${HOST_ID_LIST[@]}"
+        do 
+            if [ $id -eq $i ];
+            then
+                HOST_NAME_LIST+=("$name")
+                HOST_IP_LIST+=("$address")
+                break
+            fi
+        done
+    fi
+done < <(tail -n +2 $HOSTS)
 
 # Kill
 for ((i=0;i<${#HOST_IP_LIST[@]};i++))

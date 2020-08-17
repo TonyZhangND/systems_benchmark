@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
@@ -45,22 +46,46 @@ func put(cli *clientv3.Client, key, value string) (int64, bool) {
 	return elapsed.Microseconds(), true
 }
 
-/* run the main client threads
-* logger is used to to serialize all prints to standard output */
-func run(endpoints []string, numThreads int64, duration int64, logger *log.Logger) {
+/* clientLoop is the main loop of each client thread */
+func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, logger *log.Logger, id int) {
+	defer wg.Done()
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		// handle error!
+		logger.Printf("Error: client %d failed to connect to etcd cluster", id)
+		return
 	}
-	elapsed, ok := put(cli, "tony", "always the best")
-	if !ok {
-		logger.Printf("Error")
-	} else {
-		logger.Printf("%d", elapsed)
+	go func() {
+		seqNo := 0
+		for true {
+			elapsed, ok := put(cli, fmt.Sprintf("#(%d,%d)", id, seqNo), "always the best")
+			if !ok {
+				logger.Printf("Error: client %d failed to commit request %d", id, seqNo)
+			} else {
+				logger.Printf("%d %d %d", id, seqNo, elapsed)
+				seqNo++
+			}
+		}
+	}()
+	<-time.After(duration)
+	return
+
+}
+
+/* run the main client threads
+* logger is used to to serialize all prints to standard output */
+func run(endpoints []string, numThreads int64, duration time.Duration, logger *log.Logger) {
+
+	var wg sync.WaitGroup // wait for all threads to terminate
+
+	for i := 0; i < int(numThreads); i++ {
+		wg.Add(1)
+		go clientLoop(&wg, endpoints, duration, logger, i)
 	}
+	wg.Wait()
+	fmt.Println("Main: Completed")
 }
 
 /* main function.
@@ -94,5 +119,5 @@ func main() {
 	// use a logger to serialize all prints to standard output
 	var logger = log.New(os.Stdout,
 		"REQUEST: ", log.LstdFlags)
-	run(endpoints, numThreads, duration, logger)
+	run(endpoints, numThreads, time.Duration(duration)*time.Second, logger)
 }

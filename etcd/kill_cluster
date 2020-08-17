@@ -36,8 +36,8 @@ done
 for ((i=0;i<${#HOST_IP_LIST[@]};i++))
 do
     NODE_IP=${HOST_IP_LIST[$i]}
-    echo "Killing etcd on node $name"
-    ssh nudzhang@$NODE_IP "lsof -t -i:$NODE_PORT | xargs -I{} kill -9 {} > /dev/null"
+    echo "Killing etcd on node ${HOST_NAME_LIST[$i]}"
+    ssh nudzhang@$NODE_IP "lsof -t -i:$HOST_PORT | xargs -I{} kill -9 {} > /dev/null"
     ssh nudzhang@$NODE_IP "lsof -t -i:$CLIENT_PORT | xargs -I{} kill -9 {} > /dev/null"
     ssh nudzhang@$NODE_IP "rm -rf ~/*.etcd"
 done 

@@ -15,13 +15,13 @@ import (
 
 const (
 	etcdPort = 2379 //client-facing port of each etcd node
-	timeout  = 5 * time.Second
+	timeout  = 500 * time.Millisecond
 )
 
 /* put submits a put request to the etcd cluster and
 * returns the latency in microseconds, and if ok */
 func put(cli *clientv3.Client, key, value string) (int64, bool) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	start := time.Now()
 	_, err := cli.Put(ctx, key, value)
@@ -51,7 +51,7 @@ func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, 
 	defer wg.Done()
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
-		DialTimeout: 5 * time.Second,
+		DialTimeout: timeout,
 	})
 	if err != nil {
 		logger.Printf("Error: client %d failed to connect to etcd cluster", id)

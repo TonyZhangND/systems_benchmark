@@ -50,11 +50,6 @@ do
     MEMBERS="$MEMBERS,infra$i=http://$NODE_IP:$HOST_PORT"
 done
 
-
-# Terminate any existing session. 
-# This also clears any persistent data from previous sessions
-./kill_cluster ${HOST_ID_LIST[@]}
-
 # Start each host
 for ((i=0;i<${#HOST_IP_LIST[@]};i++))
 do

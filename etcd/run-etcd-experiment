@@ -1,0 +1,81 @@
+#!/bin/bash
+# This script runs an etcd benchmark experiment. 
+# The local machine is used as client
+
+if ! uname -a | grep -q Linux; 
+then
+    echo "Error: This script should only be run on Linux"
+    exit 1
+fi
+
+HOSTS="../hosts_all.csv"
+ROOT_DIR="/home/nudzhang/Documents/littles-law-benchmarking/etcd"
+
+TRIAL_DURATION=3     # duration of each trial
+ITERATIONS=3         # repeats of each trial
+CLIENT_THREADS=("1" "2" "4")
+F_VALUES=("1")
+TIMESTAMP=$(date +"%d-%b-%H%M")
+
+echo "Starting new etcd latency-throughput experiment at time $TIMESTAMP"
+
+# Build client and kill all etcd instances on all machines
+./kill-cluster > /dev/null
+./build
+echo ""
+
+for f in "${F_VALUES[@]}"
+do
+    # Generate node id's to use
+    node_ids=()
+    for ((id=7;id<$[ 7 + 2*f+1 ];id++))
+    do
+        node_ids+=("$id")
+    done
+
+    host_name_list=()
+    host_ip_list=()
+
+    # Get info on the hosts
+    for i in "${node_ids[@]}"
+    do
+        while IFS=, read -r id name address port
+        do 
+            if [ $id -eq $i ]
+            then
+                # echo "TONY: $name $address $port"
+                host_name_list+=("$name")
+                host_ip_list+=("$address")
+                break
+            fi
+        done < <(tail -n +2 $HOSTS)
+    done
+
+    for ct in "${CLIENT_THREADS[@]}"
+    do 
+        for ((trial=0;trial<$ITERATIONS;trial++))
+        do
+            time=$(date +"%d-%b-%H%M")
+            echo "Starting etcd trial at time $time"
+            echo "    - etcd cluster    : ${node_ids[@]}"
+            echo "    - clients threads : $ct"
+            echo "    - trial duration  : $TRIAL_DURATION s"
+            echo "    - trial number    : $trial"
+
+            trial_dir="$ROOT_DIR/data/$TIMESTAMP/f_$f/threads_$ct"
+            mkdir -p $trial_dir 
+
+            # Start trial
+            ./start-etcd-cluster ${node_ids[@]} > /dev/null
+            sleep 2
+            ./client-main ${host_ip_list[@]} $ct $TRIAL_DURATION > $trial_dir/trial$trial.log
+            ./kill-cluster ${node_ids[@]}   > /dev/null
+            echo "Completed trial"
+            echo ""
+        done
+    done
+done
+
+
+end_timestamp=$(date +"%d-%b-%H%M")
+echo "etcd experiment completed at time $end_timestamp"

@@ -60,7 +60,10 @@ do
   --advertise-client-urls http://$NODE_IP:$CLIENT_PORT \
   --initial-cluster-token etcd-cluster-1 \
   --initial-cluster $MEMBERS \
-  --initial-cluster-state new"
+  --initial-cluster-state new \
+  --logger=zap --log-outputs=/home/nudzhang/log.etcd"
 
-    ssh nudzhang@$NODE_IP "$SCRIPT > /dev/null"  &
+    ssh nudzhang@$NODE_IP "$SCRIPT"  &
 done
+
+echo "etcd cluster stated"

@@ -19,8 +19,8 @@ const (
 )
 
 /* put submits a put request to the etcd cluster and
-* returns the latency in microseconds, and if ok */
-func put(cli *clientv3.Client, key, value string) (int64, bool) {
+* returns the start and end time, and if ok */
+func put(cli *clientv3.Client, key, value string) (*time.Time, *time.Time, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	start := time.Now()
@@ -29,25 +29,24 @@ func put(cli *clientv3.Client, key, value string) (int64, bool) {
 		switch err {
 		case context.Canceled:
 			// log.Fatalf("ctx is canceled by another routine: %v", err)
-			return -1, false
+			return nil, nil, false
 		case context.DeadlineExceeded:
 			// log.Fatalf("ctx is attached with a deadline is exceeded: %v", err)
-			return -1, false
+			return nil, nil, false
 		case rpctypes.ErrEmptyKey:
 			// log.Fatalf("client-side error: %v", err)
-			return -1, false
+			return nil, nil, false
 		default:
 			// log.Fatalf("bad cluster endpoints, which are not etcd servers: %v", err)
-			return -1, false
+			return nil, nil, false
 		}
 	}
 	end := time.Now()
-	elapsed := end.Sub(start)
-	return elapsed.Microseconds(), true
+	return &start, &end, true
 }
 
 /* clientLoop is the main loop of each client thread */
-func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, logger *log.Logger, id int) {
+func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, t0 time.Time, logger *log.Logger, id int) {
 	defer wg.Done()
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
@@ -60,11 +59,11 @@ func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, 
 	go func() {
 		seqNo := 0
 		for true {
-			elapsed, ok := put(cli, fmt.Sprintf("#(%d,%d)", id, seqNo), "always the best")
+			start, end, ok := put(cli, fmt.Sprintf("#(%d,%d)", id, seqNo), "always the best")
 			if !ok {
 				logger.Printf("Error: client %d failed to commit request %d", id, seqNo)
 			} else {
-				logger.Printf("%d %d %d", id, seqNo, elapsed)
+				logger.Printf("%d %d %d %d", id, seqNo, start.Sub(t0).Microseconds(), end.Sub(t0).Microseconds())
 				seqNo++
 			}
 		}
@@ -79,10 +78,11 @@ func clientLoop(wg *sync.WaitGroup, endpoints []string, duration time.Duration, 
 func run(endpoints []string, numThreads int64, duration time.Duration, logger *log.Logger) {
 
 	var wg sync.WaitGroup // wait for all threads to terminate
+	t0 := time.Now()      // official start time of the experiment
 
 	for i := 0; i < int(numThreads); i++ {
 		wg.Add(1)
-		go clientLoop(&wg, endpoints, duration, logger, i)
+		go clientLoop(&wg, endpoints, duration, t0, logger, i)
 	}
 	wg.Wait()
 	fmt.Println("Main: Completed")

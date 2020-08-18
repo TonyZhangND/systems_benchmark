@@ -9,6 +9,8 @@ HOSTS="../hosts_all.csv"
 HOST_PORT="2380"            # peer-facing port used by etcd hosts
 CLIENT_PORT="2379"          # client-facing port used by etcd hosts
 
+
+ETCD_DIR="/home/nudzhang/tmp/etcd"  # directory to save log and snapshot on each host
 HOST_ID_LIST=("$@")
 
 if [ ${#HOST_ID_LIST[@]} -lt 1 ];
@@ -53,6 +55,8 @@ done
 # Start each host
 for ((i=0;i<${#HOST_IP_LIST[@]};i++))
 do
+    ssh nudzhang@$NODE_IP "mkdir -p $ETCD_DIR"
+
     NODE_IP=${HOST_IP_LIST[$i]}
     SCRIPT="etcd --name infra$i --initial-advertise-peer-urls http://$NODE_IP:$HOST_PORT \
   --listen-peer-urls http://$NODE_IP:$HOST_PORT \
@@ -61,7 +65,8 @@ do
   --initial-cluster-token etcd-cluster-1 \
   --initial-cluster $MEMBERS \
   --initial-cluster-state new \
-  --logger=zap --log-outputs=/home/nudzhang/log.etcd"
+  --logger=zap --log-outputs=$ETCD_DIR/infra$i.etcd.log \
+  --data-dir=$ETCD_DIR/infra$i.etcd"
 
     ssh nudzhang@$NODE_IP "$SCRIPT"  &
 done

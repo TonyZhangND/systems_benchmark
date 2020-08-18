@@ -36,7 +36,7 @@ do
     echo "Killing etcd on node ${HOST_NAME_LIST[$i]}"
     ssh nudzhang@$NODE_IP "lsof -t -i:$HOST_PORT | xargs -I{} kill -9 {} > /dev/null"
     ssh nudzhang@$NODE_IP "lsof -t -i:$CLIENT_PORT | xargs -I{} kill -9 {} > /dev/null"
-    ssh nudzhang@$NODE_IP "rm -rf ~/*.etcd"
+    ssh nudzhang@$NODE_IP "rm -rf /home/nudzhang/tmp/etcd/*etcd*"
 done 
 
 echo "Done"

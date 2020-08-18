@@ -9,6 +9,7 @@ then
 fi
 
 HOSTS="../hosts_all.csv"
+ETCD_DIR="/home/nudzhang/tmp/etcd"  # directory where logs and snapshots are saved on each host
 ROOT_DIR="/home/nudzhang/Documents/littles-law-benchmarking/etcd"
 
 TRIAL_DURATION=3     # duration of each trial
@@ -20,7 +21,7 @@ TIMESTAMP=$(date +"%d-%b-%H%M")
 echo "Starting new etcd latency-throughput experiment at time $TIMESTAMP"
 
 # Build client and kill all etcd instances on all machines
-./kill-cluster > /dev/null
+./kill-cluster 7 8 9 &>/dev/null
 ./build
 echo ""
 
@@ -69,6 +70,13 @@ do
             ./start-etcd-cluster ${node_ids[@]} > /dev/null
             sleep 2
             ./client-main ${host_ip_list[@]} $ct $TRIAL_DURATION > $trial_dir/trial$trial.log
+
+            # Grab etcd logs from each host for post-mortem
+            for ((i=0;i<${#host_ip_list[@]};i++))
+            do
+                scp nudzhang@${host_ip_list[i]}:$ETCD_DIR/*.log $trial_dir/trial${trial}_${host_name_list[i]}.log
+            done
+
             ./kill-cluster ${node_ids[@]}   > /dev/null
             echo "Completed trial"
             echo ""

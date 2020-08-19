@@ -12,10 +12,10 @@ HOSTS="../hosts_all.csv"
 ETCD_DIR="/home/nudzhang/tmp/etcd"  # directory where logs and snapshots are saved on each host
 ROOT_DIR="/home/nudzhang/Documents/littles-law-benchmarking/etcd"
 
-TRIAL_DURATION=3     # duration of each trial
+TRIAL_DURATION=5     # duration of each trial
 ITERATIONS=3         # repeats of each trial
-CLIENT_THREADS=("1" "2" "4")
-F_VALUES=("1")
+CLIENT_THREADS=("1" "2" "4" "8" "16" "32" "64" "128" "256")
+F_VALUES=("1" "2" "3")
 TIMESTAMP=$(date +"%d-%b-%H%M")
 
 echo "Starting new etcd latency-throughput experiment at time $TIMESTAMP"
@@ -80,6 +80,7 @@ do
             ./kill-cluster ${node_ids[@]}   > /dev/null
             echo "Completed trial"
             echo ""
+            sleep 1
         done
     done
 done

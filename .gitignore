@@ -1,4 +1,5 @@
 .vscode/
+__pycache__
 etcd/src/go.etcd.io/
 etcd/src/google.golang.org/
 etcd/src/github.com/
